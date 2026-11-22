@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
-export type AccountType = 'SAVINGS' | 'CHECKING' | 'BUSINESS';
+export type AccountType = 'SAVINGS' | 'CHECKING' | 'CURRENT' | 'BUSINESS';
 export type AccountStatus = 'ACTIVE' | 'FROZEN' | 'CLOSED';
 
 export interface IBankAccount extends Document {
@@ -10,6 +10,9 @@ export interface IBankAccount extends Document {
   balance: number;
   currency: string;
   status: AccountStatus;
+  dailyLimit: number;
+  maxSingleLimit: number;
+  minBalance: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,7 +33,7 @@ const bankAccountSchema = new Schema<IBankAccount>(
     },
     accountType: {
       type: String,
-      enum: ['SAVINGS', 'CHECKING', 'BUSINESS'],
+      enum: ['SAVINGS', 'CHECKING', 'CURRENT', 'BUSINESS'],
       default: 'SAVINGS',
     },
     balance: {
@@ -47,6 +50,21 @@ const bankAccountSchema = new Schema<IBankAccount>(
       type: String,
       enum: ['ACTIVE', 'FROZEN', 'CLOSED'],
       default: 'ACTIVE',
+    },
+    dailyLimit: {
+      type: Number,
+      default: 10000,
+      min: [0, 'Daily limit cannot be negative'],
+    },
+    maxSingleLimit: {
+      type: Number,
+      default: 5000,
+      min: [0, 'Max single limit cannot be negative'],
+    },
+    minBalance: {
+      type: Number,
+      default: 0,
+      min: [0, 'Minimum balance cannot be negative'],
     },
   },
   {

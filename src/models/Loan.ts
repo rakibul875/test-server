@@ -1,6 +1,18 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
-export type LoanStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'PAID_OFF';
+export type LoanStatus =
+  | 'PENDING'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'ACTIVE'
+  | 'PAID_OFF';
+
+export interface ILoanRepayment {
+  amount: number;
+  paidAt: Date;
+  transactionReference: string;
+}
 
 export interface ILoan extends Document {
   userId: Types.ObjectId;
@@ -10,8 +22,12 @@ export interface ILoan extends Document {
   termMonths: number;
   monthlyInstallment: number;
   remainingBalance: number;
+  purpose?: string;
   status: LoanStatus;
+  staffNotes?: string;
+  reviewedByStaff?: Types.ObjectId;
   approvedBy?: Types.ObjectId;
+  repayments: ILoanRepayment[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,16 +70,38 @@ const loanSchema = new Schema<ILoan>(
       required: [true, 'Remaining balance is required'],
       min: [0, 'Remaining balance cannot be negative'],
     },
+    purpose: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     status: {
       type: String,
-      enum: ['PENDING', 'APPROVED', 'REJECTED', 'ACTIVE', 'PAID_OFF'],
+      enum: ['PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'ACTIVE', 'PAID_OFF'],
       default: 'PENDING',
+    },
+    staffNotes: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reviewedByStaff: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     approvedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       default: null,
     },
+    repayments: [
+      {
+        amount: { type: Number, required: true },
+        paidAt: { type: Date, default: Date.now },
+        transactionReference: { type: String, required: true },
+      },
+    ],
   },
   {
     timestamps: true,

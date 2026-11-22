@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "seed": "ts-node-dev src/utils/seed.ts"
+    "seed": "ts-node-dev --transpile-only src/utils/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +27,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.6",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^7.0.2"
+    "typescript": "^5.8.2"
   }
 }
