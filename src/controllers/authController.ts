@@ -11,24 +11,35 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const { name, email, password, phone, address, transactionPin } = req.body;
 
-    // Validate inputs
-    if (!name || !email || !password || !transactionPin) {
+    // Validate name
+    if (!name || typeof name !== 'string' || !name.trim()) {
       res.status(400).json({
         success: false,
-        message: 'Name, email, password, and a 4-digit transaction PIN are required.',
+        message: 'Full legal name is required.',
       });
       return;
     }
 
-    if (!/^\d{4}$/.test(transactionPin)) {
+    // Validate email
+    if (!email || typeof email !== 'string' || !email.trim()) {
       res.status(400).json({
         success: false,
-        message: 'Transaction PIN must be exactly 4 numeric digits.',
+        message: 'Email address is required.',
       });
       return;
     }
 
-    if (password.length < 6) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address.',
+      });
+      return;
+    }
+
+    // Validate password
+    if (!password || typeof password !== 'string' || password.length < 6) {
       res.status(400).json({
         success: false,
         message: 'Password must be at least 6 characters long.',
@@ -36,27 +47,46 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    // Validate transaction PIN
+    if (!transactionPin) {
+      res.status(400).json({
+        success: false,
+        message: 'A 4-digit transaction PIN is required.',
+      });
+      return;
+    }
+
+    const pinStr = String(transactionPin).trim();
+    if (!/^\d{4}$/.test(pinStr)) {
+      res.status(400).json({
+        success: false,
+        message: 'Transaction PIN must consist of exactly 4 numeric digits.',
+      });
+      return;
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       res.status(409).json({
         success: false,
-        message: 'An account with this email address already exists.',
+        message: 'An account with this email address already exists. Please log in instead.',
       });
       return;
     }
 
     // Hash credentials
     const hashedPassword = await bcrypt.hash(password, 10);
-    const hashedPin = await bcrypt.hash(transactionPin, 10);
+    const hashedPin = await bcrypt.hash(pinStr, 10);
 
     const user = await User.create({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: cleanEmail,
       password: hashedPassword,
       transactionPin: hashedPin,
       role: 'CUSTOMER',
-      phone: phone?.trim() || '',
-      address: address?.trim() || '',
+      phone: phone ? String(phone).trim() : '',
+      address: address ? String(address).trim() : '',
       status: 'ACTIVE',
     });
 
@@ -98,7 +128,8 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
       data: {
         token,
         user: {
-          id: user._id,
+          id: user._id.toString(),
+          _id: user._id.toString(),
           name: user.name,
           email: user.email,
           role: user.role,
@@ -109,9 +140,19 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
         account: initialAccount,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Auth] Register error:', error);
-    res.status(500).json({ success: false, message: 'Server error during registration.' });
+    if (error?.code === 11000) {
+      res.status(409).json({
+        success: false,
+        message: 'An account with this email address already exists. Please log in.',
+      });
+      return;
+    }
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Server error occurred during customer registration.',
+    });
   }
 };
 
@@ -120,27 +161,45 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      res.status(400).json({ success: false, message: 'Email and password are required.' });
-      return;
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
-    if (!user) {
-      res.status(401).json({ success: false, message: 'Invalid email or password.' });
-      return;
-    }
-
-    if (user.status !== 'ACTIVE') {
-      res.status(403).json({
+      res.status(400).json({
         success: false,
-        message: `Account is currently ${user.status.toLowerCase()}. Please contact bank support.`,
+        message: 'Both email address and password are required.',
       });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password || '');
+    const cleanEmail = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail }).select('+password');
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid email address or password.',
+      });
+      return;
+    }
+
+    if (user.status === 'BLOCKED') {
+      res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended or blocked. Please contact customer support.',
+      });
+      return;
+    }
+
+    if (user.status === 'INACTIVE') {
+      res.status(403).json({
+        success: false,
+        message: 'Your account is inactive. Please contact bank administration.',
+      });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(String(password), user.password || '');
     if (!isMatch) {
-      res.status(401).json({ success: false, message: 'Invalid email or password.' });
+      res.status(401).json({
+        success: false,
+        message: 'Invalid email address or password.',
+      });
       return;
     }
 
@@ -161,7 +220,8 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
       data: {
         token,
         user: {
-          id: user._id,
+          id: user._id.toString(),
+          _id: user._id.toString(),
           name: user.name,
           email: user.email,
           role: user.role,
@@ -171,22 +231,25 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
         },
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Auth] Login error:', error);
-    res.status(500).json({ success: false, message: 'Server error during login.' });
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Server error occurred during login authentication.',
+    });
   }
 };
 
 export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ success: false, message: 'Unauthorized' });
+      res.status(401).json({ success: false, message: 'Unauthorized session.' });
       return;
     }
 
     const user = await User.findById(req.user.id);
     if (!user) {
-      res.status(404).json({ success: false, message: 'User not found.' });
+      res.status(404).json({ success: false, message: 'User profile not found.' });
       return;
     }
 
@@ -197,7 +260,8 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
       success: true,
       data: {
         user: {
-          id: user._id,
+          id: user._id.toString(),
+          _id: user._id.toString(),
           name: user.name,
           email: user.email,
           role: user.role,
@@ -209,8 +273,11 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
         accounts,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Auth] Profile fetch error:', error);
-    res.status(500).json({ success: false, message: 'Server error retrieving profile.' });
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Server error retrieving user profile.',
+    });
   }
 };
