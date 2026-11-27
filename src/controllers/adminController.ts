@@ -603,7 +603,7 @@ export const reviewRequest = async (req: AuthRequest, res: Response): Promise<vo
           txnData.receiverUserId = request.userId;
         }
 
-        await Transaction.create([txnData], { session: session || undefined });
+        await Transaction.create([txnData], { session: session || undefined, ordered: true });
 
         request.status = 'APPROVED';
         request.reviewedBy = adminId as any;
@@ -619,7 +619,7 @@ export const reviewRequest = async (req: AuthRequest, res: Response): Promise<vo
               type: 'TRANSACTION',
             },
           ],
-          { session: session || undefined }
+          { session: session || undefined, ordered: true }
         );
       });
 
@@ -762,7 +762,7 @@ export const reviewLoanDecision = async (req: AuthRequest, res: Response): Promi
             reference: disbursementRef,
           },
         ],
-        { session: session || undefined }
+        { session: session || undefined, ordered: true }
       );
 
       // 4. Send approval notification to customer
@@ -775,7 +775,7 @@ export const reviewLoanDecision = async (req: AuthRequest, res: Response): Promi
             type: 'TRANSACTION',
           },
         ],
-        { session: session || undefined }
+        { session: session || undefined, ordered: true }
       );
     });
 

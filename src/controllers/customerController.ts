@@ -294,7 +294,7 @@ export const transferFunds = async (req: AuthRequest, res: Response): Promise<vo
             flagReason,
           },
         ],
-        { session: session || undefined }
+        { session: session || undefined, ordered: true }
       );
 
       // Create notifications for sender and receiver
@@ -313,7 +313,7 @@ export const transferFunds = async (req: AuthRequest, res: Response): Promise<vo
             type: 'TRANSACTION',
           },
         ],
-        { session: session || undefined }
+        { session: session || undefined, ordered: true }
       );
 
       return newTxn;
@@ -699,7 +699,7 @@ export const repayLoan = async (req: AuthRequest, res: Response): Promise<void> 
             reference: transactionRef,
           },
         ],
-        { session: session || undefined }
+        { session: session || undefined, ordered: true }
       );
 
       // Notification
@@ -714,7 +714,7 @@ export const repayLoan = async (req: AuthRequest, res: Response): Promise<void> 
             type: 'TRANSACTION',
           },
         ],
-        { session: session || undefined }
+        { session: session || undefined, ordered: true }
       );
     });
 
